@@ -1,0 +1,3 @@
+data/ # Игнорировать папку с датасетом
+venv/
+.ipynb_checkpoints/
