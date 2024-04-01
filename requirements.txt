@@ -1,0 +1,14 @@
+ultralytics
+supervision==0.1.0
+opencv_python
+torch>=1.7
+lap
+numpy
+cython_bbox
+motmetrics
+onemetric
+
+# for training: 
+albumentations # for wider preprocessing
+# also yolov5 requirements for training
+comet_ml
