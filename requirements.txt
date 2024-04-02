@@ -1,0 +1,12 @@
+ultralytics
+numpy==1.23
+supervision==0.1.0
+opencv-python
+torch>=1.7
+lap
+cython_bbox
+motmetrics
+onemetric
+av
+albumentations
+onnxruntime

@@ -2,30 +2,31 @@ import io
 from typing import List
 
 import numpy as np
-#import av
 import cv2
 import onnxruntime
 import albumentations as A
 from onemetric.cv.utils.iou import box_iou_batch
 
+# Local packages
 import tracker
 from tracker.byte_tracker import STrack
 
 
 class Yolov5Detector():
-    confidence_thres = 0.5
-    iou_thres = 0.5
-    min_score = 0.5
+    confidence_threshold = 0.1
+    iou_threshold = 0.1
+    score_threshold = 0.1
+    nms_threshold = 0.5
     
     byte_tracker_args = {
-        "track_thresh": 0.25
-        "track_buffer": 30
-        "match_thresh": 0.8
-        "aspect_ratio_thresh": 3.0
-        "min_box_area":= 1.0
-        "mot20": False
-        "MEAN": 0
-        "STD": 0.5
+        "track_thresh": 0.25,
+        "track_buffer": 30,
+        "match_thresh": 0.8,
+        "aspect_ratio_thresh": 3.0,
+        "min_box_area": 1.0,
+        "mot20": False,
+        "MEAN": 0,
+        "STD": 0.5,
     }
 
     def __init__(self, model_path='best.onnx', size=(1280, 1280), classes={0: 'face'}) -> None:
@@ -57,14 +58,17 @@ class Yolov5Detector():
         """
         mean=(0.485, 0.456, 0.406)
         std=(0.229, 0.224, 0.225)
-        transform = A.Compose([
+        normalize_transform = A.Compose([
             A.Normalize(mean=mean, std=std),
             A.LongestMaxSize(max_size=self._size[0]),
             A.PadIfNeeded(min_height=self._size[0], min_width=self._size[0], border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0)),
         ])
-
+        resize_transform = A.Compose([
+            A.LongestMaxSize(max_size=self._size[0]),
+            A.PadIfNeeded(min_height=self._size[0], min_width=self._size[0], border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0)),
+        ])
         # Применение аугментации к изображению
-        return transform(image=rgb_img)['image']
+        return normalize_transform(image=rgb_img)['image'], resize_transform(image=rgb_img)['image']
         
     
     def forward(self, rgb_img):
@@ -79,7 +83,8 @@ class Yolov5Detector():
         """
         input_image = np.expand_dims(rgb_img, axis=0).astype('float32')
         input_image = np.transpose(input_image, [0, 3, 1, 2])
-        return input_image, self._session.run(None, {self.input_name: input_image})[0][0]
+        return self._session.run(None, {self.input_name: input_image})[0][0]
+    
     
     def post_process(self, output):
         """
@@ -91,8 +96,20 @@ class Yolov5Detector():
         Returns:
             tuple: Processed bounding boxes and class IDs.
         """
-        
-        return
+        # Извлечение ограничивающих рамок, оценок достоверности и вероятностей классов
+        boxes = output[:, :4].astype(np.float32)  # Форма [num_detections, 4]
+        scores = output[:, 4].astype(np.float32)  # Форма [num_detections]
+
+        # Преобразование ограничивающих рамок в формат [x1, y1, x2, y2]
+        boxes = boxes.tolist()
+        boxes = [
+            (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+            for cx, cy, w, h in boxes
+        ]
+
+        keep = cv2.dnn.NMSBoxes(boxes, scores.tolist(), self.score_threshold, self.nms_threshold)
+        return [boxes[i] for i in keep], scores[keep]
+    
     
     def draw_detections(self, img, box, score, class_id=0, tracker_id=None):
         """
@@ -115,22 +132,21 @@ class Yolov5Detector():
         # Create the label text with class name and score
         keep = True
         try: 
-            if tracker_id is not None:
+            if tracker_id is None:
                 label = f"face: {score:.2f}"
             else: 
-                label = f"face: {score:.2f} track_id: {tracker_id}"
+                label = f"#{tracker_id} score: {score:.2f}"
         except KeyError:
             keep = False
         if keep:
             # Retrieve the color for the class ID
-            color_palette = np.random.uniform(0, 255, size=(len(classes), 3))
-            color = color_palette[class_id]
-
+            color = (0, 128, 0) # green
+            font_scale = 1.3
             # Draw the bounding box on the image
             cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
 
             # Calculate the dimensions of the label text
-            (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
 
             # Calculate the position of the label text
             label_x = x1
@@ -146,7 +162,7 @@ class Yolov5Detector():
             )
 
             # Draw the label text on the image
-            cv2.putText(img, label, (int(label_x), int(label_y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+            cv2.putText(img, label, (int(label_x), int(label_y)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), 1, cv2.LINE_AA)
 
             
     def draw_box(self, img):
@@ -159,7 +175,15 @@ class Yolov5Detector():
         Returns:
             numpy.ndarray: Image with bounding boxes drawn.
         """
-        return
+        preprocessed_img, resized_img = self._preprocess(img)
+        output = self.forward(preprocessed_img)
+        bboxes, scores = self.post_process(output)
+
+        for xyxy, score in zip(bboxes, scores):
+            self.draw_detections(img=resized_img, box=xyxy, score=score)
+
+        # Преобразование изображения в формат RGB для matplotlib
+        return cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)
     
     
     def _match_detections_with_tracks(detections, tracks: List[tracker.byte_tracker.STrack]):
@@ -210,6 +234,10 @@ class Yolov5Detector():
         # Video capturing
         while ret:
             ret, frame = cap.read()
+            # Отображаем результаты с помощью Matplotlib
+            plt.imshow(frame)
+            plt.axis('off')
+            plt.show()
             preprocessed_image, results = self.forward(frame)
             detections = {
                 "xyxy": results[:4],

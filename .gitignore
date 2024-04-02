@@ -1,0 +1,6 @@
+video/
+bot_venv/
+*.jpg
+*.mp4
+__pychache__/
+.ipynb_checkpoints/
