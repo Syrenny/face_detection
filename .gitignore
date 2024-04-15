@@ -4,3 +4,4 @@ bot_venv/
 *.mp4
 __pychache__/
 .ipynb_checkpoints/
+filtered_dataset/
