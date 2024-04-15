@@ -14,7 +14,7 @@ ultralytics.checks()
     
 class Yolov8Detector():
 
-    def __init__(self, model_path='best.onnx', size=(640, 640), classes={0: 'face'}, model_name="yolov8") -> None:
+    def __init__(self, model_path='best.onnx', size=(640, 640), classes={0: 'face'}) -> None:
         """
         Initialize the MyDetector object.
 
@@ -25,12 +25,8 @@ class Yolov8Detector():
         Returns:
             None
         """
-#         self._session = onnxruntime.InferenceSession(model_path)
-#         self.input_name = self._session.get_inputs()[0].name
-#         self.output_names = [self._session.get_outputs()[0].name]
         self._size = size
         self.classes = classes
-        self.model_name = model_name
         self.model = YOLO(model_path, task='detect')
     
 

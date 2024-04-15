@@ -1,4 +1,4 @@
-ultralytics
+ultralytics>=8.1.42
 supervision==0.1.0
 opencv-python
 av
