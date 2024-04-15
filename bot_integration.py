@@ -73,10 +73,28 @@ class Yolov8Detector():
         return output_memory_file
     
     def draw_box(self, img):
+        """
+        This method is responsible for drawing bounding boxes around detected faces in an image.
+        
+        Parameters:
+              img (numpy.ndarray): Input image containing faces.
+              
+        Returns:
+              output_img (matplotlib.pyplot.figure): Image with bounding boxes drawn around detected faces.
+        """
         output = self.model.predict(img, device='cpu', conf= 0.23, iou = 0.8)
         output_img = output[0].plot()
         return output_img
     
     
     def __call__(self, img):
+        """
+        Calls the draw_box method to draw bounding boxes around detected faces in the input image.
+
+        Parameters:
+              img (numpy.ndarray): Input image containing faces.
+
+        Returns:
+              output_img (matplotlib.pyplot.figure): Image with bounding boxes plotted around detected faces.
+        """
         return self.draw_box(img)
