@@ -1,4 +1,5 @@
 import io
+import av
 import numpy as np
 import cv2
 import onnxruntime
@@ -11,7 +12,7 @@ from ultralytics import YOLO
 ultralytics.checks()
 
       
-    
+
 class Yolov8Detector():
 
     def __init__(self, model_path='best.onnx', size=(640, 640), classes={0: 'face'}) -> None:
