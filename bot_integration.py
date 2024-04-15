@@ -55,7 +55,7 @@ class Yolov8Detector():
             if not ret:
                 break    
             #find bounding boxes and track them via YOLO model method    
-            results = self.model.track(frame, persist=True, conf=0.23, iou = 0.8, tracker='bytetrack.yaml')
+            results = self.model.track(frame,device='cpu',  persist=True, conf=0.23, iou = 0.8, tracker='bytetrack.yaml')
 #             results = self.model.predict(frame, conf=0.23 , iou=0.8)
             
             #draw bboxes
@@ -73,7 +73,7 @@ class Yolov8Detector():
         return output_memory_file
     
     def draw_box(self, img):
-        output = self.model.predict(img, conf= 0.23, iou = 0.8)
+        output = self.model.predict(img, device='cpu', conf= 0.23, iou = 0.8)
         output_img = output[0].plot()
         return output_img
     
