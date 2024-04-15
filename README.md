@@ -22,6 +22,9 @@ The `bot_integration.py` file contains the core class `Yolov8Detector()` respons
 
 For a demonstration of how to use our face detection system, refer to the `example.ipynb` notebook. This notebook provides a step-by-step guide on how to load the model, process images, and visualize the detection results.
 
+Here some outputs of our model:
+<img src="output_video_ZHDvokzal.gif" width="400"/>
+
 ## License
 
 This project is licensed under the MIT License, allowing for both personal and commercial use with proper attribution.
