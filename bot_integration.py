@@ -43,7 +43,6 @@ class Yolov8Detector():
         """
         fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-        
         # Video stream handling 
         output_memory_file = io.BytesIO()
         output_f = av.open(output_memory_file, 'w', format='mp4')  # Open "in memory file" as MP4 video output
