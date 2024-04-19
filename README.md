@@ -25,9 +25,16 @@ For a demonstration of how to use our face detection system, refer to the `examp
 ## Here some outputs of our model
 <img src="assets/video_example_1.gif" width="400"/>    <img src="assets/video_example_2.gif" width="400"/>
 
+## Resources
+
+- [Ultralytics](https://github.com/ultralytics/ultralytics)
+- [Yolov8](https://docs.ultralytics.com/)
+- [ByteTrack](https://github.com/ifzhang/ByteTrack)
+- [WIDER Face](http://shuoyang1213.me/WIDERFACE/)
+
 ## License
 
-This project is licensed under the MIT License, allowing for both personal and commercial use with proper attribution.
+This project is licensed under the [MIT License](https://github.com/git/git-scm.com/blob/main/MIT-LICENSE.txt), allowing for both personal and commercial use with proper attribution.
 
 ## Contributors
 
