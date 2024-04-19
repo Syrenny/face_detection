@@ -1,91 +1,92 @@
+import os
 import io
 import av
 import numpy as np
 import cv2
-import onnxruntime
 import ultralytics
-from ultralytics import YOLO
 
 
-# Local packages
-
-ultralytics.checks()
-
-      
-
-class Yolov8Detector():
-
-    def __init__(self, model_path='best.onnx', size=(640, 640), classes={0: 'face'}) -> None:
+class FaceDetector():
+    def __init__(self, 
+                 model_path='best.onnx',
+                 device='cpu',
+                 crops_path=None,
+                 meta_path=None,
+                 persist=True,
+                 conf=0.23,
+                 iou=0.8,
+                 tracker='bytetrack.yaml') -> None:
         """
-        Initialize the MyDetector object.
+        Initialize the FaceDetector object.
 
         Args:
             model_path (str): Path to the model file.
-            size (tuple): Size of the input image.
+            device (str): Specifies the device for inference (e.g., cpu, cuda:0 or 0).
+            crops_path (str): Best bboxes of faces crops will be saved there
+            meta_path (str): Meta data for each frame of video will be saved there
+            persist (bool): Argument tells the tracker that the current image or frame is the next in a sequence and to expect tracks from the previous image in the current image.
+            conf (float): Sets the minimum confidence threshold for detections.
+            iou (float): Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS).
+            tracker (str): botsort.yaml/bytetrack.yaml (https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/trackers)
 
         Returns:
             None
         """
-        self._size = size
-        self.classes = classes
-        self.model = YOLO(model_path, task='detect')
+        ultralytics.checks()
+        self.model = ultralytics.YOLO(model_path, task='detect')
+        self.device = device
+        self.crops_path = crops_path
+        self.meta_path = meta_path
+        self.tracker_params = {
+            "device": device,
+            "persist": persist,
+            "conf": conf,
+            "iou": 0.8,
+            "tracker": tracker
+        }
+        self.frame_number = 0
+        if crops_path is not None:
+            # self.best_crops contains id: (confidence score, cropped_bbox)
+            self.best_crops = {}
     
-
-    def video_run(self, cap):
-        """
-        Process video frames and draw bboxes.
-
-        Args:
-            cap: Video capture object.
-
-        Returns:
-            io.BytesIO: In-memory file containing the processed video.
-        """
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-
-        # Video stream handling 
-        output_memory_file = io.BytesIO()
-        output_f = av.open(output_memory_file, 'w', format='mp4')  # Open "in memory file" as MP4 video output
-        stream = output_f.add_stream('h264', str(fps))  # Add H.264 video stream to the MP4 container, with framerate = fps.
-        stream.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        stream.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        # Video capturing
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break    
-            #find bounding boxes and track them via YOLO model method    
-            results = self.model.track(frame,device='cpu',  persist=True, conf=0.23, iou = 0.8, tracker='bytetrack.yaml')
-#             results = self.model.predict(frame, conf=0.23 , iou=0.8)
-            
-            #draw bboxes
-            annotated_frame = results[0].plot()
-#             print(annotated_frame.shape)
-            # Convert image from NumPy Array to frame.
-            annotated_frame = av.VideoFrame.from_ndarray(annotated_frame, format='bgr24') 
-            packet = stream.encode(annotated_frame)  # Encode video frame
-            output_f.mux(packet)  # "Mux" the encoded frame (add the encoded frame to MP4 file).
-            
-        # Flush the encoder
-        packet = stream.encode(None)
-        output_f.mux(packet)
-        output_f.close()
-        return output_memory_file
-    
-    def draw_box(self, img):
-        """
-        This method is responsible for drawing bounding boxes around detected faces in an image.
+    def _save_crops(self, img, tracks):
         
+        
+    def _save_meta(self, tracks):
+        
+        
+    def update(self, frame):
+        """
+        Updates tracker and returns Results class object
+
         Parameters:
               img (numpy.ndarray): Input image containing faces.
-              
+
         Returns:
-              output_img (matplotlib.pyplot.figure): Image with bounding boxes drawn around detected faces.
+              results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
         """
-        output = self.model.predict(img, device='cpu', conf= 0.23, iou = 0.8)
-        output_img = output[0].plot()
-        return output_img
+        results = self.model.track(frame, **self.tracker_params)
+        # Get the boxes and track IDs
+        boxes = results[0].boxes.xywh.cpu()
+        track_ids = results[0].boxes.id.int().cpu().tolist()
+        if self.crops_path: 
+            self._save_crops(frame, track_ids)
+        if self.meta_path:
+            self._save_meta(tracks_ids)
+        self.frame_number += 1
+        return results
     
+    def get_results(self, img):
+        """
+        Inferences the detector and returns Results class object
+
+        Parameters:
+              img (numpy.ndarray): Input image containing faces.
+
+        Returns:
+              results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
+        """
+        return self.model()
     
     def __call__(self, img):
         """
