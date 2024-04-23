@@ -80,9 +80,14 @@ class FaceDetector():
                 self._save_crop(results[0].orig_img, box.xyxy, track_id)
 
     def _save_meta(self, results):
-        json_data = json.dumps(self.meta, default=lambda x: x.__dict__, indent=4)
-        with open(self.meta_path, 'w') as f:
-            f.write(json_data)
+        objects_dict = {}
+        for i, track_id, box in enumerate(zip(results[0].boxes.id.int().cpu().tolist(), results[0].boxes.cpu())):
+            
+        meta[('frame_id ' + (str(frame_id)))] = objects_dict
+        objects_dict[('object_id ' + (str(tracker_id)))] = bbox_dict
+        with open(file_path, 'a') as file:
+            json.dump({str(frame_number): frame_metadata}, file)
+            file.write('\n')  # Добавляем символ новой строки для разделения записей
 
     def update(self, frame):
         """
