@@ -1,4 +1,5 @@
 import os
+import json
 import io
 import av
 import numpy as np
@@ -46,15 +47,43 @@ class FaceDetector():
         }
         self.frame_number = 0
         if crops_path is not None:
-            # self.best_crops contains id: (confidence score, cropped_bbox)
+            if not os.path.exists(self.crops_path):
+                os.makedirs(self.crops_path)
+            # self.best_crops contains id: (max confidence score)
             self.best_crops = {}
-    
-    def _save_crops(self, img, tracks):
-        
-        
-    def _save_meta(self, tracks):
-        
-        
+        if meta_path is not None:
+            if not os.path.exists(self.meta_path):
+                os.makedirs(self.meta_path)
+
+    def _crop_image(self, image, bbox):
+        return image[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+
+    def _save_crop(self, image, bbox, track_id):
+        new_image = Image.fromarray(self._crop_image(image, bbox))
+        image_path = os.path.join(self.crop_path, str(track_id), f"{track_id}_best_crop.jpg")
+        if os.path.exists(image_path):
+            existing_image = Image.open(os.path.join(image_path))
+            existing_image.paste(new_image)
+            existing_image.save(image_path)
+        else:
+            os.makedirs(os.path.join(self.crop_path, str(track_id)))
+            new_image.save(image_path)
+            
+    def _update_crops(self, results):
+        for i, track_id, box in enumerate(zip(results[0].boxes.id.int().cpu().tolist(), results[0].boxes.cpu())):
+            if track_id in self.best_crops: 
+                if box.conf > self.best_crops[track_id]:
+                    self._save_crop(results[0].orig_img, box.xyxy, track_id)
+                    self.best_crops[track_id] = box.conf
+            else: 
+                self.best_crops[track_id] = box.conf 
+                self._save_crop(results[0].orig_img, box.xyxy, track_id)
+
+    def _save_meta(self, results):
+        json_data = json.dumps(self.meta, default=lambda x: x.__dict__, indent=4)
+        with open(self.meta_path, 'w') as f:
+            f.write(json_data)
+
     def update(self, frame):
         """
         Updates tracker and returns Results class object
@@ -70,12 +99,12 @@ class FaceDetector():
         boxes = results[0].boxes.xywh.cpu()
         track_ids = results[0].boxes.id.int().cpu().tolist()
         if self.crops_path: 
-            self._save_crops(frame, track_ids)
+            self._save_crops(results)
         if self.meta_path:
-            self._save_meta(tracks_ids)
+            self._save_meta(results)
         self.frame_number += 1
         return results
-    
+
     def get_results(self, img):
         """
         Inferences the detector and returns Results class object
@@ -87,7 +116,7 @@ class FaceDetector():
               results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
         """
         return self.model()
-    
+
     def __call__(self, img):
         """
         Calls the draw_box method to draw bounding boxes around detected faces in the input image.
@@ -98,4 +127,4 @@ class FaceDetector():
         Returns:
               output_img (matplotlib.pyplot.figure): Image with bounding boxes plotted around detected faces.
         """
-        return self.draw_box(img)
+        return self.get_results(img)
