@@ -14,6 +14,7 @@ class FaceDetector():
                  device='cpu',
                  crops_path=None,
                  meta_path=None,
+                 marks_path = None, 
                  persist=True,
                  conf=0.23,
                  iou=0.8,
@@ -39,6 +40,7 @@ class FaceDetector():
         self.device = device
         self.crops_path = crops_path
         self.meta_path = meta_path
+        self.marks_path = marks_path
         self.tracker_params = {
             "device": device,
             "persist": persist,
@@ -47,6 +49,7 @@ class FaceDetector():
             "tracker": tracker
         }
         self.frame_number = 0
+
         if crops_path is not None:
             if not os.path.exists(self.crops_path):
                 os.makedirs(self.crops_path)
@@ -58,6 +61,13 @@ class FaceDetector():
             if not os.path.exists(os.path.dirname(meta_path)):
                 # Если директория отсутствует, создаем ее
                 os.makedirs(os.path.dirname(meta_path))
+        if marks_path is not None:
+            self.tracked_ids = {}
+            self.marks = {}
+            if not os.path.exists(os.path.dirname(marks_path)):
+                # Если директория отсутствует, создаем ее
+                os.makedirs(os.path.dirname(marks_path))
+                
 
     def _crop_image(self, image, bbox):
         """
@@ -128,7 +138,33 @@ class FaceDetector():
          
         with open(self.meta_path, 'w') as file:
             json.dump(self.meta, file)
+                    
+    def _update_marks(self, results):
+        """
+        Saves marks for start and end of the tracking .json file self.marks_path
 
+        Parameters:
+              results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
+        """
+        tracks = results[0].boxes.id.int().cpu().tolist()
+        
+        for i in tracks:
+            track_start= self.frame_number
+            track_end = self.frame_number
+            if i not in self.tracked_ids:
+                self.tracked_ids[i] = (track_start, track_end)
+            else:
+                self.tracked_ids[i] = (self.tracked_ids[i][0], track_end)
+        
+        for i in self.tracked_ids:
+            if i not in tracks:
+                track_marks = {"track_start": self.tracked_ids[i][0], "track_end": self.tracked_ids[i][1]}
+                self.marks[i] = track_marks
+                with open(self.marks_path, 'w') as file:
+                    json.dump(self.marks, file)
+ 
+        
+        
     def update(self, frame):
         """
         Updates tracker and returns Results class object
@@ -145,6 +181,8 @@ class FaceDetector():
                 self._update_crops(results)
             if self.meta_path is not None:
                 self._update_meta(results)
+            if self.marks_path is not None:
+                self._update_marks(results)
         self.frame_number += 1
         return results
 
