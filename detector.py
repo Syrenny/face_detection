@@ -24,8 +24,8 @@ class FaceDetector():
         Args:
             model_path (str): Path to the model file.
             device (str): Specifies the device for inference (e.g., cpu, cuda:0 or 0).
-            crops_path (str): Best bboxes of faces crops will be saved there
-            meta_path (str): Meta data for each frame of video will be saved there
+            crops_path (str): Best bboxes of faces crops will be saved in this directory. If not exist, it will be created.
+            meta_path (str): Path to .json file. If not exist, it will be created.
             persist (bool): Argument tells the tracker that the current image or frame is the next in a sequence and to expect tracks from the previous image in the current image.
             conf (float): Sets the minimum confidence threshold for detections.
             iou (float): Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS).
@@ -53,8 +53,11 @@ class FaceDetector():
             # self.best_crops contains id: (max confidence score)
             self.best_crops = {}
         if meta_path is not None:
-            if not os.path.exists(self.meta_path):
-                os.makedirs(self.meta_path)
+            self.meta = {}
+            # Проверяем, существует ли директория по указанному пути
+            if not os.path.exists(os.path.dirname(meta_path)):
+                # Если директория отсутствует, создаем ее
+                os.makedirs(os.path.dirname(meta_path))
 
     def _crop_image(self, image, bbox):
         """
@@ -106,16 +109,25 @@ class FaceDetector():
                 self.best_crops[track_id] = conf 
                 self._save_crop(results[0].orig_img, xyxy, track_id)
 
-    def _save_meta(self, results):
-        pass
-#         objects_dict = {}
-#         for i, track_id, box in enumerate(zip(results[0].boxes.id.int().cpu().tolist(), results[0].boxes.cpu())):
-            
-#         meta[('frame_id ' + (str(frame_id)))] = objects_dict
-#         objects_dict[('object_id ' + (str(tracker_id)))] = bbox_dict
-#         with open(file_path, 'a') as file:
-#             json.dump({str(frame_number): frame_metadata}, file)
-#             file.write('\n')  # Добавляем символ новой строки для разделения записей
+    def _update_meta(self, results):
+        """
+        Saves xyxy and confidence of current bboxes in .json file self.meta_path
+
+        Parameters:
+              results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
+        """
+        frame_meta = {}
+        tracks = results[0].boxes.id.int().cpu().tolist()
+        bboxes = results[0].boxes.cpu().xyxy
+        confidence = results[0].boxes.cpu().conf
+        
+        for i, (track_id, xyxy, conf) in enumerate(zip(tracks, bboxes, confidence)):
+            track_meta = {"xyxy": xyxy.tolist(), "confidence": float(conf)}
+            frame_meta[track_id] = track_meta
+        self.meta[self.frame_number] = frame_meta
+         
+        with open(self.meta_path, 'w') as file:
+            json.dump(self.meta, file)
 
     def update(self, frame):
         """
@@ -131,8 +143,8 @@ class FaceDetector():
         if results[0].boxes.id is not None:
             if self.crops_path is not None: 
                 self._update_crops(results)
-        if self.meta_path is not None:
-            self._save_meta(results)
+            if self.meta_path is not None:
+                self._update_meta(results)
         self.frame_number += 1
         return results
 
