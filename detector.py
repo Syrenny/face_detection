@@ -80,14 +80,15 @@ class FaceDetector():
                 self._save_crop(results[0].orig_img, box.xyxy, track_id)
 
     def _save_meta(self, results):
-        objects_dict = {}
-        for i, track_id, box in enumerate(zip(results[0].boxes.id.int().cpu().tolist(), results[0].boxes.cpu())):
+        pass
+#         objects_dict = {}
+#         for i, track_id, box in enumerate(zip(results[0].boxes.id.int().cpu().tolist(), results[0].boxes.cpu())):
             
-        meta[('frame_id ' + (str(frame_id)))] = objects_dict
-        objects_dict[('object_id ' + (str(tracker_id)))] = bbox_dict
-        with open(file_path, 'a') as file:
-            json.dump({str(frame_number): frame_metadata}, file)
-            file.write('\n')  # Добавляем символ новой строки для разделения записей
+#         meta[('frame_id ' + (str(frame_id)))] = objects_dict
+#         objects_dict[('object_id ' + (str(tracker_id)))] = bbox_dict
+#         with open(file_path, 'a') as file:
+#             json.dump({str(frame_number): frame_metadata}, file)
+#             file.write('\n')  # Добавляем символ новой строки для разделения записей
 
     def update(self, frame):
         """
@@ -100,9 +101,6 @@ class FaceDetector():
               results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
         """
         results = self.model.track(frame, **self.tracker_params)
-        # Get the boxes and track IDs
-        boxes = results[0].boxes.xywh.cpu()
-        track_ids = results[0].boxes.id.int().cpu().tolist()
         if self.crops_path: 
             self._save_crops(results)
         if self.meta_path:
