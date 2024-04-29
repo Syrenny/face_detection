@@ -5,6 +5,7 @@ import av
 import numpy as np
 import cv2
 import ultralytics
+from PIL import Image
 
 
 class FaceDetector():
@@ -56,28 +57,54 @@ class FaceDetector():
                 os.makedirs(self.meta_path)
 
     def _crop_image(self, image, bbox):
+        """
+        Crops bbox from image
+
+        Parameters:
+              image (numpy.ndarray): Input image containing face.
+              bbox (numpy.ndarray): Bbox in xyxy.
+        """
+        bbox = np.int32(bbox)
         return image[bbox[1]:bbox[3], bbox[0]:bbox[2]]
 
     def _save_crop(self, image, bbox, track_id):
+        """
+        Saves the crop of face in <self.crop_path>/<track_id>/<track_id>_best_crop.jpg
+
+        Parameters:
+              image (numpy.ndarray): Input image containing face.
+              bbox (numpy.ndarray): Bbox in xyxy.
+              track_id (int): Tracker index of current bbox.
+        """
         new_image = Image.fromarray(self._crop_image(image, bbox))
-        image_path = os.path.join(self.crop_path, str(track_id), f"{track_id}_best_crop.jpg")
+        image_path = os.path.join(self.crops_path, str(track_id), f"{track_id}_best_crop.jpg")
         if os.path.exists(image_path):
             existing_image = Image.open(os.path.join(image_path))
             existing_image.paste(new_image)
             existing_image.save(image_path)
         else:
-            os.makedirs(os.path.join(self.crop_path, str(track_id)))
+            os.makedirs(os.path.join(self.crops_path, str(track_id)))
             new_image.save(image_path)
             
     def _update_crops(self, results):
-        for i, track_id, box in enumerate(zip(results[0].boxes.id.int().cpu().tolist(), results[0].boxes.cpu())):
+        """
+        Updates self.best_crops, which contains the best confidence score for each tracker index.
+        Saves crop when new bbox with higher confidence score was found.
+
+        Parameters:
+              results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
+        """
+        tracks = results[0].boxes.id.int().cpu().tolist()
+        bboxes = results[0].boxes.cpu().xyxy
+        confidence = results[0].boxes.cpu().conf
+        for i, (track_id, xyxy, conf) in enumerate(zip(tracks, bboxes, confidence)):
             if track_id in self.best_crops: 
-                if box.conf > self.best_crops[track_id]:
-                    self._save_crop(results[0].orig_img, box.xyxy, track_id)
-                    self.best_crops[track_id] = box.conf
+                if conf > self.best_crops[track_id]:
+                    self._save_crop(results[0].orig_img, xyxy, track_id)
+                    self.best_crops[track_id] = conf
             else: 
-                self.best_crops[track_id] = box.conf 
-                self._save_crop(results[0].orig_img, box.xyxy, track_id)
+                self.best_crops[track_id] = conf 
+                self._save_crop(results[0].orig_img, xyxy, track_id)
 
     def _save_meta(self, results):
         pass
@@ -101,9 +128,10 @@ class FaceDetector():
               results (List[ultralytics.engine.results.Results]): A list of tracking results, encapsulated in the Results class.
         """
         results = self.model.track(frame, **self.tracker_params)
-        if self.crops_path: 
-            self._save_crops(results)
-        if self.meta_path:
+        if results[0].boxes.id is not None:
+            if self.crops_path is not None: 
+                self._update_crops(results)
+        if self.meta_path is not None:
             self._save_meta(results)
         self.frame_number += 1
         return results
